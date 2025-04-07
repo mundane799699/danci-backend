@@ -41,4 +41,17 @@ class Word(Base):
     word = Column(String(100), unique=True, nullable=False, comment='单词')
     content = Column(Text, nullable=False, comment='单词详细内容')
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
+
+class WordEmailHistory(Base):
+    __tablename__ = "word_email_history"
+    __table_args__ = {
+        'comment': '单词邮件发送历史表'
+    }
+
+    id = Column(Integer, primary_key=True, index=True, comment='历史记录ID')
+    user_id = Column(Integer, comment='用户ID')
+    word_id = Column(Integer, comment='单词ID')
+    sent_at = Column(DateTime(timezone=True), server_default=func.now(), comment='发送时间')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间') 

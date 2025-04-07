@@ -12,9 +12,12 @@ from auth import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from scheduler import scheduler_manager
+from scheduler import SchedulerManager
 
 router = APIRouter()
+
+# 创建scheduler_manager实例
+scheduler_manager = SchedulerManager(test_mode=True)  # 默认使用测试模式
 
 @router.post("/register", response_model=schemas.User)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
