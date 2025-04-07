@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 # 包含用户路由
-app.include_router(user_router, prefix="/api", tags=["users"])
+app.include_router(user_router, prefix="/danci", tags=["users"])
 
 # 设置测试模式
 test_mode = os.getenv("TEST_MODE", "true").lower() == "true"
