@@ -2,7 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from models import UserSubscribeMail, Word, WordEmailHistory
 import random
 from typing import List
@@ -215,10 +215,12 @@ class EmailService:
         # 如果发送成功，记录历史
         if success:
             for word in words:
+                # todo:每次发送邮件历史表只记录一条数据，另外再增加一张历史和单词关联表，将单词数据记录到关联表中
                 history = WordEmailHistory(
                     user_id=user_subscribe.user_id,
                     word_id=word['id'],
-                    sent_at=func.now()
+                    sent_at=func.now(),
+                    send_date=func.date(func.now())
                 )
                 db.add(history)
             db.commit()

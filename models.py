@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, text, Text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, text, Text, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -53,5 +53,6 @@ class WordEmailHistory(Base):
     user_id = Column(Integer, comment='用户ID')
     word_id = Column(Integer, comment='单词ID')
     sent_at = Column(DateTime(timezone=True), server_default=func.now(), comment='发送时间')
+    send_date = Column(String(10), default=func.date(func.now()), comment='发送日期')
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间') 

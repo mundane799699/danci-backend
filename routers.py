@@ -199,3 +199,54 @@ async def get_words_pagination(
         "current_page": page,
         "page_size": page_size
     } 
+
+@router.get("/email-history", response_model=schemas.WordEmailHistoryPaginationResponse)
+async def get_email_history_pagination(
+    page: int = 1,
+    page_size: int = 10,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    分页查询当前用户的邮件发送历史
+    
+    - **page**: 当前页码，从1开始
+    - **page_size**: 每页数量
+    """
+    # 计算偏移量
+    offset = (page - 1) * page_size
+    
+    # 查询总数量
+    total_count = db.query(models.WordEmailHistory).filter(
+        models.WordEmailHistory.user_id == current_user.id
+    ).count()
+    
+    # 使用join查询获取历史记录和关联的单词信息
+    histories = db.query(
+        models.WordEmailHistory,
+        models.Word
+    ).join(
+        models.Word,
+        models.WordEmailHistory.word_id == models.Word.id
+    ).filter(
+        models.WordEmailHistory.user_id == current_user.id
+    ).order_by(
+        models.WordEmailHistory.sent_at.desc()
+    ).offset(offset).limit(page_size).all()
+    
+    # 将查询结果转换为所需的格式
+    result_histories = []
+    for history, word in histories:
+        history.word = word
+        result_histories.append(history)
+    
+    # 判断是否还有更多数据
+    has_more = offset + len(result_histories) < total_count
+    
+    return {
+        "histories": result_histories,
+        "total_count": total_count,
+        "has_more": has_more,
+        "current_page": page,
+        "page_size": page_size
+    } 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, date
 
 class UserBase(BaseModel):
     username: str
@@ -56,6 +56,44 @@ class Word(BaseModel):
 # 单词分页响应模型
 class WordPaginationResponse(BaseModel):
     words: list[Word]
+    total_count: int
+    has_more: bool
+    current_page: int
+    page_size: int
+
+# 单词邮件发送历史模型
+class WordEmailHistory(BaseModel):
+    id: int
+    user_id: int
+    word_id: int
+    sent_at: datetime
+    send_date: str
+    created_at: datetime
+    updated_at: datetime
+    word: Word | None = None  # 关联的单词信息
+
+    class Config:
+        from_attributes = True
+
+# 单词邮件发送历史分页响应模型
+class WordEmailHistoryPaginationResponse(BaseModel):
+    histories: list[WordEmailHistory]
+    total_count: int
+    has_more: bool
+    current_page: int
+    page_size: int
+
+# 按日期分组的单词邮件历史记录
+class GroupedWordEmailHistory(BaseModel):
+    send_date: str
+    words: list[Word]
+
+    class Config:
+        from_attributes = True
+
+# 按日期分组的单词邮件历史记录分页响应模型
+class GroupedWordEmailHistoryPaginationResponse(BaseModel):
+    grouped_histories: list[GroupedWordEmailHistory]
     total_count: int
     has_more: bool
     current_page: int
