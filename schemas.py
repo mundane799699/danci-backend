@@ -42,4 +42,21 @@ class UserSubscribeMail(UserSubscribeMailBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+# 单词模型
+class Word(BaseModel):
+    id: int
+    word: str
+    content: str
+
+    class Config:
+        from_attributes = True
+
+# 单词分页响应模型
+class WordPaginationResponse(BaseModel):
+    words: list[Word]
+    total_count: int
+    has_more: bool
+    current_page: int
+    page_size: int 

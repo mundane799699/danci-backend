@@ -167,3 +167,35 @@ async def delete_email_settings(
     db.commit()
     
     return None 
+
+@router.get("/words", response_model=schemas.WordPaginationResponse)
+async def get_words_pagination(
+    page: int = 1,
+    page_size: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    分页查询单词列表
+    
+    - **page**: 当前页码，从1开始
+    - **page_size**: 每页数量
+    """
+    # 计算偏移量
+    offset = (page - 1) * page_size
+    
+    # 查询总数量
+    total_count = db.query(models.Word).count()
+    
+    # 查询当前页的单词
+    words = db.query(models.Word).offset(offset).limit(page_size).all()
+    
+    # 判断是否还有更多数据
+    has_more = offset + len(words) < total_count
+    
+    return {
+        "words": words,
+        "total_count": total_count,
+        "has_more": has_more,
+        "current_page": page,
+        "page_size": page_size
+    } 

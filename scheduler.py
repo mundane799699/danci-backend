@@ -80,4 +80,4 @@ class SchedulerManager:
         if job_id in self.job_ids:
             self.scheduler.remove_job(job_id)
             self.job_ids.remove(job_id)
-            logger.info(f"已移除用户订阅ID {subscribe_id} 的定时邮件任务") 
+            logger.info(f"已移除订阅ID {subscribe_id} 的定时邮件任务") 
