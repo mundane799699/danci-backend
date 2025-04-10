@@ -13,6 +13,10 @@ from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 from scheduler import SchedulerManager
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -221,27 +225,33 @@ async def get_email_history_pagination(
         models.WordEmailHistory.user_id == current_user.id
     ).count()
     
-    # 使用join查询获取历史记录和关联的单词信息
-    histories = db.query(
-        models.WordEmailHistory,
-        models.Word
-    ).join(
-        models.Word,
-        models.WordEmailHistory.word_id == models.Word.id
-    ).filter(
+    # 查询历史记录
+    histories = db.query(models.WordEmailHistory).filter(
         models.WordEmailHistory.user_id == current_user.id
     ).order_by(
         models.WordEmailHistory.sent_at.desc()
     ).offset(offset).limit(page_size).all()
     
-    # 将查询结果转换为所需的格式
+    # 为每个历史记录加载关联的单词
     result_histories = []
-    for history, word in histories:
-        history.word = word
-        result_histories.append(history)
+    for history in histories:
+        # 使用relationship加载关联的单词
+        db.refresh(history)
+        
+        # 创建符合schemas.WordEmailHistory的数据结构
+        history_dict = {
+            "id": history.id,
+            "user_id": history.user_id,
+            "sent_at": history.sent_at,
+            "send_date": history.send_date,
+            "created_at": history.created_at,
+            "updated_at": history.updated_at,
+            "words": [history_word.word for history_word in history.words]
+        }
+        result_histories.append(history_dict)
     
     # 判断是否还有更多数据
-    has_more = offset + len(result_histories) < total_count
+    has_more = offset + len(histories) < total_count
     
     return {
         "histories": result_histories,

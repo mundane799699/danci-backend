@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, text, Text, Date
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, text, Text, Date, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -51,8 +51,26 @@ class WordEmailHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True, comment='历史记录ID')
     user_id = Column(Integer, comment='用户ID')
-    word_id = Column(Integer, comment='单词ID')
     sent_at = Column(DateTime(timezone=True), server_default=func.now(), comment='发送时间')
     send_date = Column(String(10), default=func.date(func.now()), comment='发送日期')
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间') 
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
+    
+    # 添加关系
+    words = relationship("WordEmailHistoryWord", back_populates="history")
+
+class WordEmailHistoryWord(Base):
+    __tablename__ = "word_email_history_word"
+    __table_args__ = {
+        'comment': '单词邮件历史与单词关联表'
+    }
+
+    id = Column(Integer, primary_key=True, index=True, comment='关联ID')
+    history_id = Column(Integer, ForeignKey('word_email_history.id'), comment='历史记录ID')
+    word_id = Column(Integer, ForeignKey('words.id'), comment='单词ID')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
+    
+    # 添加关系
+    history = relationship("WordEmailHistory", back_populates="words")
+    word = relationship("Word") 

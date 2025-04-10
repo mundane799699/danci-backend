@@ -3,7 +3,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
-from models import UserSubscribeMail, Word, WordEmailHistory
+from models import UserSubscribeMail, Word, WordEmailHistory, WordEmailHistoryWord
 import random
 from typing import List
 import os
@@ -45,7 +45,9 @@ class EmailService:
         """从数据库中随机获取指定数量的单词，排除用户已经背过的单词"""
         try:
             # 查询用户已经背过的单词ID
-            learned_word_ids = db.query(WordEmailHistory.word_id).filter(
+            learned_word_ids = db.query(WordEmailHistoryWord.word_id).join(
+                WordEmailHistory, WordEmailHistoryWord.history_id == WordEmailHistory.id
+            ).filter(
                 WordEmailHistory.user_id == user_id
             ).all()
             learned_word_ids = [word_id[0] for word_id in learned_word_ids]
@@ -69,6 +71,35 @@ class EmailService:
             # 发生错误时返回空列表
             return []
 
+    def process_content(self, content: str) -> str:
+        """
+        处理内容中的###标记，将其替换为**
+        
+        Args:
+            content: 原始内容字符串
+            
+        Returns:
+            str: 处理后的内容
+        """
+        # 按行分割内容
+        lines = content.split("\n")
+        
+        # 处理每一行
+        processed_lines = []
+        for line in lines:
+            # 检查是否包含"###"
+            if "###" in line.strip() or "##" in line.strip():
+                # 提取"###"以外的内容
+                processed_content = line.replace("#", "").strip()
+                # 返回加粗格式的内容
+                processed_lines.append(f"**{processed_content}**")
+            else:
+                # 其他行保持不变
+                processed_lines.append(line)
+        
+        # 重新组合行
+        return "\n".join(processed_lines)
+
     def generate_email_content(self, words: List[dict]) -> str:
         # 邮件样式
         style = """
@@ -87,18 +118,21 @@ class EmailService:
                 margin-bottom: 30px;
             }
             .word-card {
-                background-color: #f9f9f9;
                 border-radius: 8px;
                 padding: 20px;
                 margin-bottom: 30px;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             }
             .word-title {
-                color: #3498db;
                 font-size: 24px;
                 margin-bottom: 15px;
-                border-bottom: 2px solid #3498db;
-                padding-bottom: 5px;
+                text-align: center;
+                font-weight: bold;
+            }
+            .separator {
+                height: 1px;
+                background-color: #9ca3af;
+                margin: 15px 0;
             }
             h3 {
                 color: #2c3e50;
@@ -122,6 +156,15 @@ class EmailService:
                 color: #7f8c8d;
                 font-size: 12px;
             }
+            /* 背景颜色类 */
+            .bg-amber-50 { background-color: #fffbeb; }
+            .bg-pink-50 { background-color: #fdf2f8; }
+            .bg-green-50 { background-color: #f0fdf4; }
+            .bg-blue-50 { background-color: #eff6ff; }
+            .bg-purple-50 { background-color: #faf5ff; }
+            .bg-teal-50 { background-color: #f0fdfa; }
+            .bg-indigo-50 { background-color: #eef2ff; }
+            .bg-rose-50 { background-color: #fff1f2; }
         </style>
         """
         
@@ -131,16 +174,36 @@ class EmailService:
                 {style}
             </head>
             <body>
-                <h2>今天背单词了吗？</h2>
+                <h2>今天你背单词了吗？</h2>
         """
         
+        # 定义背景颜色类
+        background_colors = [
+            "bg-amber-50",  # 米黄色
+            "bg-pink-50",   # 浅粉色
+            "bg-green-50",  # 浅绿色
+            "bg-blue-50",   # 浅蓝色
+            "bg-purple-50", # 浅紫色
+            "bg-teal-50",   # 浅青色
+            "bg-indigo-50", # 浅靛蓝色
+            "bg-rose-50",   # 浅玫瑰色
+        ]
+        
         for word in words:
+            # 使用单词ID作为种子来生成一致的随机颜色
+            color_index = word['id'] % len(background_colors)
+            bg_color = background_colors[color_index]
+            
+            # 处理内容中的###标记
+            processed_content = self.process_content(word['content'])
+            
             # 将Markdown转换为HTML
-            html_content = markdown2.markdown(word['content'], extras=['fenced-code-blocks', 'tables'])
+            html_content = markdown2.markdown(processed_content, extras=['fenced-code-blocks', 'tables'])
             
             content += f"""
-                <div class="word-card">
+                <div class="word-card {bg_color}">
                     <div class="word-title">{word['word']}</div>
+                    <div class="separator"></div>
                     {html_content}
                 </div>
             """
@@ -214,15 +277,23 @@ class EmailService:
         
         # 如果发送成功，记录历史
         if success:
+            # 创建一条历史记录
+            history = WordEmailHistory(
+                user_id=user_subscribe.user_id,
+                sent_at=func.now(),
+                send_date=func.date(func.now())
+            )
+            db.add(history)
+            db.flush()  # 获取history.id
+            
+            # 为每个单词创建关联记录
             for word in words:
-                # todo:每次发送邮件历史表只记录一条数据，另外再增加一张历史和单词关联表，将单词数据记录到关联表中
-                history = WordEmailHistory(
-                    user_id=user_subscribe.user_id,
-                    word_id=word['id'],
-                    sent_at=func.now(),
-                    send_date=func.date(func.now())
+                history_word = WordEmailHistoryWord(
+                    history_id=history.id,
+                    word_id=word['id']
                 )
-                db.add(history)
+                db.add(history_word)
+            
             db.commit()
             
         return success 

@@ -65,12 +65,11 @@ class WordPaginationResponse(BaseModel):
 class WordEmailHistory(BaseModel):
     id: int
     user_id: int
-    word_id: int
     sent_at: datetime
     send_date: str
     created_at: datetime
     updated_at: datetime
-    word: Word | None = None  # 关联的单词信息
+    words: list[Word] = []  # 关联的单词列表
 
     class Config:
         from_attributes = True
