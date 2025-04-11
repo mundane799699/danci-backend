@@ -20,7 +20,7 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    username: str | None = None
+    user_id: str | None = None
 
 # 添加登录请求模型
 class LoginRequest(BaseModel):

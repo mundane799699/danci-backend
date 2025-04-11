@@ -47,13 +47,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")  # 从token中获取email而不是username
-        if email is None:
+        user_id: str = payload.get("sub")  # 从token中获取user_id
+        if user_id is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=email)  # 使用email作为标识
+        token_data = schemas.TokenData(user_id=user_id)  # 使用user_id作为标识
     except JWTError:
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == email).first()  # 使用email查询用户
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()  # 使用user_id查询用户
     if user is None:
         raise credentials_exception
     return user 
