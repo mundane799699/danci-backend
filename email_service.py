@@ -19,6 +19,7 @@ class EmailService:
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.sender_email = os.getenv("SENDER_EMAIL")
         self.sender_password = os.getenv("SENDER_PASSWORD")
+        self.web_url = os.getenv("WEB_URL", "")
 
     def send_email(self, to_email: str, subject: str, content: str):
         try:
@@ -174,6 +175,9 @@ class EmailService:
                 {style}
             </head>
             <body>
+                <p style="text-align: center; margin-bottom: 10px;">
+                    <a href="{self.web_url}/dashboard/history-email" target="_blank" style="color: #3b82f6; text-decoration: underline;">查看网页端</a>
+                </p>
                 <h2>今天你背单词了吗？</h2>
         """
         
