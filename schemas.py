@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, EmailStr
 
@@ -115,18 +116,14 @@ class GroupedWordEmailHistoryPaginationResponse(BaseModel):
     page_size: int
 
 
-# 小红书API参数模型
-class XhsCollectParams(BaseModel):
-    num: int = 30
-    cursor: str = ""
-    user_id: str
-    image_formats: str = "jpg,webp,avif"
-    xsec_token: str = ""
-    xsec_source: str = ""
-
-
 # 小红书计算xs的请求体模型
 class XhsCalculateXsRequest(BaseModel):
     api: str
     a1: str
-    params: XhsCollectParams
+    params: dict[str, Any] | None = None
+
+
+# 小红书xs计算响应模型
+class XhsCalculateXsResponse(BaseModel):
+    xs: str
+    success: bool = True
