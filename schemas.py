@@ -96,4 +96,13 @@ class GroupedWordEmailHistoryPaginationResponse(BaseModel):
     total_count: int
     has_more: bool
     current_page: int
-    page_size: int 
+    page_size: int
+
+# 小红书API参数模型
+class XhsCollectParams(BaseModel):
+    num: int = 30
+    cursor: str = ""
+    user_id: str
+    image_formats: str = "jpg,webp,avif"
+    xsec_token: str = ""
+    xsec_source: str = "" 

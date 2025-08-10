@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import router as user_router, scheduler_manager
+from user_routers import router as user_router, scheduler_manager
+from xhs_routers import router as xhs_router
 import os
 
 app = FastAPI(title="背单词API")
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # 包含用户路由
 app.include_router(user_router, prefix="/danci", tags=["users"])
+app.include_router(xhs_router, prefix="/xhs", tags=["xhs"])
 
 # 设置测试模式
 test_mode = os.getenv("TEST_MODE", "true").lower() == "true"
