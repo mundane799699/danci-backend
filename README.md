@@ -1,9 +1,18 @@
 ## 环境搭建
 
+使用conda
 ```bash
 conda create -n danci python=3.10
 conda activate danci
 pip install -r requirements.txt
+```
+
+使用uv
+```bash
+uv python install 3.10
+uv python pin 3.10
+uv venv --python 3.10
+source .venv/bin/activate
 ```
 
 ## 运行
