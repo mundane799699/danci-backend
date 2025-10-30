@@ -38,6 +38,7 @@ class LoginRequest(BaseModel):
 
 class UserSubscribeMailBase(BaseModel):
     email: str
+    mail_type: str = "word"  # word or quote
     word_count: int
     send_time: str
 

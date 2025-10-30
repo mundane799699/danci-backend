@@ -26,6 +26,7 @@ class UserSubscribeMail(Base):
     id = Column(Integer, primary_key=True, index=True, comment='设置ID')
     user_id = Column(Integer, unique=True, comment='用户ID')
     email = Column(String(100), unique=True, comment='订阅邮箱地址')
+    mail_type = Column(String(20), default='word', comment='邮件类型：word-单词，quote-金句')
     word_count = Column(Integer, default=5, comment='每封邮件的单词数量')
     send_time = Column(String(5), default='09:00', comment='邮件发送时间，格式为HH:MM')
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
