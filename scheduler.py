@@ -57,8 +57,15 @@ class SchedulerManager:
         try:
             user_subscribe = db.query(UserSubscribeMail).filter(UserSubscribeMail.id == subscribe_id).first()
             if user_subscribe:
-                self.email_service.send_word_email(db, user_subscribe)
-                logger.info(f"已发送邮件给用户订阅ID {user_subscribe.id}")
+                # 根据邮件类型发送不同的邮件
+                if user_subscribe.mail_type == "quote":
+                    # 发送金句邮件
+                    self.email_service.send_quote_email(db, user_subscribe)
+                    logger.info(f"已发送金句邮件给用户订阅ID {user_subscribe.id}")
+                else:
+                    # 发送单词邮件（默认）
+                    self.email_service.send_word_email(db, user_subscribe)
+                    logger.info(f"已发送单词邮件给用户订阅ID {user_subscribe.id}")
         except Exception as e:
             logger.error(f"发送邮件失败: {str(e)}")
         finally:
