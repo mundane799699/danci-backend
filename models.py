@@ -44,6 +44,17 @@ class Word(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
 
+class Quote(Base):
+    __tablename__ = "quotes"
+    __table_args__ = {
+        'comment': '金句表'
+    }
+
+    id = Column(Integer, primary_key=True, index=True, comment='金句ID')
+    content = Column(Text, nullable=False, comment='金句内容')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
+
 class WordEmailHistory(Base):
     __tablename__ = "word_email_history"
     __table_args__ = {
