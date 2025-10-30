@@ -393,7 +393,6 @@ class EmailService:
             }
             .quote-container {
                 background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-                border-left: 4px solid #667eea;
                 border-radius: 8px;
                 padding: 30px;
                 margin: 30px 0;
@@ -446,7 +445,6 @@ class EmailService:
                     </div>
                     <div class="divider"></div>
                     <div class="quote-container">
-                        <div class="quote-mark">"</div>
                         <div class="quote-content">
                             {quote["content"]}
                         </div>
