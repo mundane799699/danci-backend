@@ -104,6 +104,7 @@ async def create_email_settings(
     db_settings = models.UserSubscribeMail(
         user_id=current_user.id,
         email=settings.email,
+        mail_type=settings.mail_type,
         word_count=settings.word_count,
         send_time=settings.send_time
     )
@@ -136,6 +137,7 @@ async def update_email_settings(
     
     # 更新设置
     db_settings.email = settings.email
+    db_settings.mail_type = settings.mail_type
     db_settings.word_count = settings.word_count
     db_settings.send_time = settings.send_time
     
