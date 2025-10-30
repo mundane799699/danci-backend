@@ -55,6 +55,21 @@ class Quote(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
 
+class QuoteEmailHistory(Base):
+    __tablename__ = "quote_email_history"
+    __table_args__ = {
+        'comment': '金句邮件发送历史表'
+    }
+
+    id = Column(Integer, primary_key=True, index=True, comment='历史记录ID')
+    user_id = Column(Integer, comment='用户ID')
+    quote_id = Column(Integer, comment='金句ID')
+    quote_content = Column(Text, nullable=False, comment='金句内容快照')
+    sent_at = Column(DateTime(timezone=True), server_default=func.now(), comment='发送时间')
+    send_date = Column(String(10), default=func.date(func.now()), comment='发送日期')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment='创建时间')
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='更新时间')
+
 class WordEmailHistory(Base):
     __tablename__ = "word_email_history"
     __table_args__ = {

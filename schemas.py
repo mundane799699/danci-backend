@@ -128,3 +128,27 @@ class XhsCalculateXsRequest(BaseModel):
 class XhsCalculateXsResponse(BaseModel):
     xs: str
     success: bool = True
+
+
+# 金句邮件发送历史模型
+class QuoteEmailHistory(BaseModel):
+    id: int
+    user_id: int
+    quote_id: int
+    quote_content: str
+    sent_at: datetime
+    send_date: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 金句邮件发送历史分页响应模型
+class QuoteEmailHistoryPaginationResponse(BaseModel):
+    histories: list[QuoteEmailHistory]
+    total_count: int
+    has_more: bool
+    current_page: int
+    page_size: int

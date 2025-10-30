@@ -254,9 +254,49 @@ async def get_email_history_pagination(
     
     # 判断是否还有更多数据
     has_more = offset + len(histories) < total_count
-    
+
     return {
         "histories": result_histories,
+        "total_count": total_count,
+        "has_more": has_more,
+        "current_page": page,
+        "page_size": page_size
+    }
+
+@router.get("/quote-history", response_model=schemas.QuoteEmailHistoryPaginationResponse)
+async def get_quote_history_pagination(
+    page: int = 1,
+    page_size: int = 10,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    分页查询当前用户的金句发送历史
+
+    - **page**: 当前页码，从1开始
+    - **page_size**: 每页数量
+    - 按发送日期降序排序
+    """
+    # 计算偏移量
+    offset = (page - 1) * page_size
+
+    # 查询总数量
+    total_count = db.query(models.QuoteEmailHistory).filter(
+        models.QuoteEmailHistory.user_id == current_user.id
+    ).count()
+
+    # 查询当前用户的金句历史记录，按发送时间降序排序
+    histories = db.query(models.QuoteEmailHistory).filter(
+        models.QuoteEmailHistory.user_id == current_user.id
+    ).order_by(
+        models.QuoteEmailHistory.sent_at.desc()
+    ).offset(offset).limit(page_size).all()
+
+    # 判断是否还有更多数据
+    has_more = offset + len(histories) < total_count
+
+    return {
+        "histories": histories,
         "total_count": total_count,
         "has_more": has_more,
         "current_page": page,

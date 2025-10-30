@@ -9,6 +9,7 @@ import markdown2
 from dotenv import load_dotenv
 from models import (
     Quote,
+    QuoteEmailHistory,
     UserSubscribeMail,
     Word,
     WordEmailHistory,
@@ -322,11 +323,36 @@ class EmailService:
 
         return success
 
-    def get_random_quote(self, db: Session) -> dict:
-        """从数据库中随机获取一条金句"""
+    def get_random_quote(self, db: Session, user_id: int) -> dict:
+        """从数据库中随机获取一条金句，排除用户已经收到的金句"""
         try:
-            # 使用 ORDER BY RAND() 实现随机获取
-            quote = db.query(Quote).order_by(func.rand()).first()
+            # 1. 查询用户已经收到的金句ID列表
+            sent_quote_ids = (
+                db.query(QuoteEmailHistory.quote_id)
+                .filter(QuoteEmailHistory.user_id == user_id)
+                .all()
+            )
+            sent_quote_ids = [qid[0] for qid in sent_quote_ids]
+
+            # 2. 从未发送过的金句中随机选择
+            quote = (
+                db.query(Quote)
+                .filter(~Quote.id.in_(sent_quote_ids))
+                .order_by(func.rand())
+                .first()
+            )
+
+            # 3. 如果所有金句都已发送，清空历史重新开始
+            if not quote:
+                print(f"用户 {user_id} 已完成所有金句，清空历史重新开始")
+                # 删除该用户的所有金句历史
+                db.query(QuoteEmailHistory).filter(
+                    QuoteEmailHistory.user_id == user_id
+                ).delete()
+                db.commit()
+
+                # 重新随机选择
+                quote = db.query(Quote).order_by(func.rand()).first()
 
             if quote:
                 return {"content": quote.content, "id": quote.id}
@@ -439,7 +465,7 @@ class EmailService:
 
     def send_quote_email(self, db: Session, user_subscribe: UserSubscribeMail):
         """发送金句邮件"""
-        quote = self.get_random_quote(db)
+        quote = self.get_random_quote(db, user_subscribe.user_id)
 
         # 检查是否获取到金句
         if not quote:
@@ -452,5 +478,18 @@ class EmailService:
 
         # 发送邮件
         success = self.send_email(user_subscribe.email, subject, content)
+
+        # 如果发送成功，记录历史
+        if success:
+            # 创建一条历史记录
+            history = QuoteEmailHistory(
+                user_id=user_subscribe.user_id,
+                quote_id=quote["id"],
+                quote_content=quote["content"],
+                sent_at=func.now(),
+                send_date=func.date(func.now()),
+            )
+            db.add(history)
+            db.commit()
 
         return success
