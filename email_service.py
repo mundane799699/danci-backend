@@ -411,11 +411,12 @@ class EmailService:
                 font-size: 20px;
                 line-height: 1.8;
                 color: #2c3e50;
-                text-align: center;
+                text-align: left;
                 padding: 20px 0;
                 position: relative;
                 z-index: 1;
                 font-weight: 500;
+                white-space: pre-line;
             }
             .footer {
                 text-align: center;
