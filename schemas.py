@@ -152,3 +152,21 @@ class QuoteEmailHistoryPaginationResponse(BaseModel):
     has_more: bool
     current_page: int
     page_size: int
+
+
+# 金句模型（用于前端展示）
+class QuoteResponse(BaseModel):
+    id: int
+    content: str
+
+    class Config:
+        from_attributes = True
+
+
+# 金句分页响应模型
+class QuotePaginationResponse(BaseModel):
+    quotes: list[QuoteResponse]
+    total_count: int
+    has_more: bool
+    current_page: int
+    page_size: int

@@ -301,4 +301,36 @@ async def get_quote_history_pagination(
         "has_more": has_more,
         "current_page": page,
         "page_size": page_size
+    }
+
+@router.get("/quotes", response_model=schemas.QuotePaginationResponse)
+async def get_quotes_pagination(
+    page: int = 1,
+    page_size: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    分页查询金句列表
+
+    - **page**: 当前页码，从1开始
+    - **page_size**: 每页数量
+    """
+    # 计算偏移量
+    offset = (page - 1) * page_size
+
+    # 查询总数量
+    total_count = db.query(models.Quote).count()
+
+    # 查询当前页的金句
+    quotes = db.query(models.Quote).offset(offset).limit(page_size).all()
+
+    # 判断是否还有更多数据
+    has_more = offset + len(quotes) < total_count
+
+    return {
+        "quotes": quotes,
+        "total_count": total_count,
+        "has_more": has_more,
+        "current_page": page,
+        "page_size": page_size
     } 
