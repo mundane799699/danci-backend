@@ -333,6 +333,7 @@ class EmailService:
                 .all()
             )
             sent_quote_ids = [qid[0] for qid in sent_quote_ids]
+            print("sent_quote_ids: ", sent_quote_ids)
 
             # 2. 从未发送过的金句中随机选择
             quote = (
@@ -341,6 +342,7 @@ class EmailService:
                 .order_by(func.rand())
                 .first()
             )
+            print("quote: ", quote)
 
             # 3. 如果所有金句都已发送，清空历史重新开始
             if not quote:
