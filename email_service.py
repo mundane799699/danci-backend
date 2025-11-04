@@ -1,4 +1,5 @@
 import os
+import random
 import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
@@ -7,6 +8,7 @@ from typing import List
 
 import markdown2
 from dotenv import load_dotenv
+from email_config import QUOTE_IMAGES
 from models import (
     Quote,
     QuoteEmailHistory,
@@ -365,6 +367,9 @@ class EmailService:
 
     def generate_quote_email_content(self, quote: dict) -> str:
         """生成金句邮件内容"""
+        # 从图片数组中随机选择一张图片
+        random_image = random.choice(QUOTE_IMAGES)
+
         # 邮件样式
         style = """
         <style>
@@ -380,7 +385,7 @@ class EmailService:
             .container {
                 background: white;
                 border-radius: 16px;
-                padding: 40px;
+                padding: 10px;
                 box-shadow: 0 10px 40px rgba(0,0,0,0.1);
             }
             .header {
@@ -396,7 +401,7 @@ class EmailService:
             .quote-container {
                 background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
                 border-radius: 8px;
-                padding: 30px;
+                padding: 10px;
                 margin: 30px 0;
                 position: relative;
             }
@@ -408,6 +413,14 @@ class EmailService:
                 top: 10px;
                 left: 20px;
                 font-family: Georgia, serif;
+            }
+            .quote-image {
+                width: 100%;
+                max-width: 500px;
+                height: auto;
+                display: block;
+                margin: 0 auto 20px;
+                border-radius: 8px;
             }
             .quote-content {
                 font-size: 20px;
@@ -448,6 +461,7 @@ class EmailService:
                     </div>
                     <div class="divider"></div>
                     <div class="quote-container">
+                        <img src="{random_image}" alt="每日金句" class="quote-image">
                         <div class="quote-content">
                             {quote["content"]}
                         </div>
