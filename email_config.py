@@ -14,4 +14,5 @@ QUOTE_IMAGES = [
     "https://cdn.mundane.ink/202511052033139.jpg",
     "https://cdn.mundane.ink/202511052034804.jpg",
     "https://cdn.mundane.ink/202511052037807.jpg",
+    "https://cdn.mundane.ink/202511052106199.jpg"
 ]
