@@ -7,7 +7,6 @@ QUOTE_IMAGES = [
     "https://cdn.mundane.ink/20240525_094227.jpg",
     "https://cdn.mundane.ink/20240906_230540.jpg",
     "https://cdn.mundane.ink/20240902_091512.jpg",
-    "https://cdn.mundane.ink/202511052029261.jpg",
     "https://cdn.mundane.ink/202511052030544.jpg",
     "https://cdn.mundane.ink/202511052032576.jpg",
     "https://cdn.mundane.ink/202511052033539.jpg",
@@ -21,4 +20,5 @@ QUOTE_IMAGES = [
     "https://cdn.mundane.ink/20251106094214766.jpg",
     "https://cdn.mundane.ink/20251124162533778.jpg",
     "https://cdn.mundane.ink/202511062120715.png",
+    "https://cdn.mundane.ink/20251215113017655.jpg",
 ]
