@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from user_routers import router as user_router, scheduler_manager
 from xhs_routers import router as xhs_router
+from douyin.router import router as douyin_router
 import os
 
 app = FastAPI(title="背单词API")
@@ -18,6 +19,7 @@ app.add_middleware(
 # 包含用户路由
 app.include_router(user_router, prefix="/danci", tags=["users"])
 app.include_router(xhs_router, prefix="/xhs", tags=["xhs"])
+app.include_router(douyin_router, prefix="/api/v1/douyin", tags=["douyin"])
 
 # 设置测试模式
 test_mode = os.getenv("TEST_MODE", "true").lower() == "true"
@@ -34,4 +36,4 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-    return {"message": "欢迎使用背单词API"} 
+    return {"message": "欢迎使用背单词API"}
