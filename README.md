@@ -1,6 +1,7 @@
 ## 环境搭建
 
 使用conda
+
 ```bash
 conda create -n danci python=3.10
 conda activate danci
@@ -8,6 +9,7 @@ pip install -r requirements.txt
 ```
 
 使用uv
+
 ```bash
 uv python install 3.10
 uv python pin 3.10
@@ -20,6 +22,22 @@ uv pip install -r requirements.txt
 
 ```bash
 uvicorn main:app --reload
+```
+
+## 部署运行
+
+先停止服务
+
+```
+ps -ef | grep uvicorn
+```
+
+然后
+
+```
+cd /home/danci/danci-backend
+source venv/bin/activate
+nohup uvicorn main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
 ```
 
 ## 前端代码
