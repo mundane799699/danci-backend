@@ -163,6 +163,7 @@ DOUYIN_SKIP_DNS_SAFETY_CHECK=true python -m douyin.cli \
 | `JOB_TIMEOUT` | 展开短链或详情请求超时 |
 | `STORAGE_ERROR` | 服务器磁盘写入或原子发布失败 |
 | `INTERNAL_ERROR` | 未分类的内部处理异常 |
+| `FILE_NOT_READY` | 任务仍在解析或下载，视频尚未准备好 |
 
 ## 7. 运行与安全注意事项
 
@@ -276,3 +277,17 @@ DOUYIN_RQ_FAILURE_TTL_SECONDS=3600
 本地全量自动化测试现为 62 个，全部通过；另用真实 Redis 验证了 Worker 未启动时任务保持 `queued`、JSON 参数可读取且超时配置生效。生产环境通过 HTTP 创建任务耗时 56 ms，任务实际经历 `queued -> resolving -> downloading -> ready`，1.59 秒内完成 2,492,850 字节 MP4；API、Redis 和文件字节数一致，没有 `.part`，FastAPI 与 Worker 均保持 `active` 且没有新增错误日志。验收任务对应的业务 key、RQ key 和视频均已精确清理。
 
 下一步进入步骤 5：实现受控下载接口，并由 Nginx `X-Accel-Redirect` 发送视频正文。
+
+## 13. 受控下载接口
+
+步骤 5 已完成 `GET /api/v1/douyin/jobs/{jobId}/download`：
+
+- 先校验规范 UUID，再读取 Redis，任务不存在、显式过期或时间已过期时返回 `404/JOB_NOT_FOUND`。
+- `queued`、`resolving`、`downloading` 返回 `409/FILE_NOT_READY`；失败任务返回其原始稳定错误码。
+- 只有 `ready` 任务可以继续，并用服务端固定规则生成 `ready/{UUID}.mp4`。
+- 使用 `lstat` 确认目标是普通文件而不是符号链接，同时核对文件大小与 Redis 的 `bytes`；缺失或不一致返回 `503/STORAGE_ERROR`。
+- 成功时返回空正文、`Content-Type: video/mp4`、固定的 `Content-Disposition` 和 `X-Accel-Redirect: /_protected-videos/{UUID}.mp4`。Python 不打开、不读取也不发送 MP4 正文。
+
+全量自动化测试现为 70 个，全部通过，覆盖非法 UUID、路径穿越、不存在、处理中、失败、过期、Redis 故障、文件缺失、尺寸不符和符号链接。生产环境真实任务生成 2,492,850 字节 MP4 后，下载接口返回 HTTP 200、正文长度 0 和正确内部转发头；本轮暂未修改 Nginx，符合分步计划。测试业务 key、RQ key 和视频均已精确清理，FastAPI 与 Worker 保持 `active` 且没有新增错误日志。
+
+下一步进入步骤 6：实现文件清理和磁盘保护；Nginx 内部文件发送链路仍按计划在步骤 7 接入。
