@@ -250,4 +250,29 @@ remove_watermark:job:{UUIDv4}
 - Redis 读写故障不会被伪装成普通视频失败，而是直接抛给未来的 Worker 重试或告警。
 - 已经处于 `ready`、`failed` 或 `expired` 的终态任务重复执行时直接返回当前记录，不重复下载；处于 `resolving` 或 `downloading` 的任务拒绝并发重复执行。
 
-本机和生产服务器真实链路均已完成：任务进入 `ready`，进度为 100，文件为 2,492,850 字节有效 MP4，Redis 记录包含 `cookie-api-v1` 解析器版本，TTL 保持有效且没有 `.part` 残留。生产验证后 FastAPI 服务保持健康且没有新增错误日志；两端本次测试视频和测试 key 均已精确删除。当前全量自动化测试为 48 个，全部通过。
+本机和生产服务器真实链路均已完成：任务进入 `ready`，进度为 100，文件为 2,492,850 字节有效 MP4，Redis 记录包含 `cookie-api-v1` 解析器版本，TTL 保持有效且没有 `.part` 残留。生产验证后 FastAPI 服务保持健康且没有新增错误日志；两端本次测试视频和测试 key 均已精确删除。该阶段完成时全量自动化测试为 48 个，全部通过。
+
+## 12. RQ Worker 和异步任务 API
+
+步骤 4 已完成，正式任务流程不再由 HTTP 请求同步解析和下载：
+
+- `POST /api/v1/douyin/jobs` 校验分享文案、创建业务任务并加入 RQ，返回 `202`、`requestId`、`jobId`、`queued` 和创建时间。
+- `GET /api/v1/douyin/jobs/{jobId}` 返回任务阶段和进度；成功时只返回公开作品信息、字节数、过期时间和下一步骤将实现的下载地址，不返回 Cookie、媒体候选或服务器文件路径。
+- `douyin/worker.py` 作为独立 RQ Worker 运行，systemd 服务名为 `douyin-worker.service`，不占用 FastAPI 进程。
+- RQ 2.11.0 使用 `JSONSerializer`。业务 Redis Hash 使用字符串解码客户端，RQ 使用二进制客户端，避免压缩任务数据被错误按 UTF-8 解码。
+- 单个任务执行上限为 300 秒，RQ 成功结果保留 300 秒、失败结果保留 3600 秒；业务状态仍由带两小时 TTL 的 Redis Hash 负责。
+- Worker 执行超时、子进程异常退出或未捕获异常会尝试把非终态业务任务写为稳定的 `JOB_TIMEOUT` 或 `INTERNAL_ERROR`。
+- 入队失败时，创建接口会删除刚写入但尚未返回给客户端的业务任务，并返回 `503/SERVICE_UNAVAILABLE`。
+
+相关配置：
+
+```dotenv
+DOUYIN_RQ_QUEUE_NAME=remove_watermark
+DOUYIN_RQ_JOB_TIMEOUT_SECONDS=300
+DOUYIN_RQ_RESULT_TTL_SECONDS=300
+DOUYIN_RQ_FAILURE_TTL_SECONDS=3600
+```
+
+本地全量自动化测试现为 62 个，全部通过；另用真实 Redis 验证了 Worker 未启动时任务保持 `queued`、JSON 参数可读取且超时配置生效。生产环境通过 HTTP 创建任务耗时 56 ms，任务实际经历 `queued -> resolving -> downloading -> ready`，1.59 秒内完成 2,492,850 字节 MP4；API、Redis 和文件字节数一致，没有 `.part`，FastAPI 与 Worker 均保持 `active` 且没有新增错误日志。验收任务对应的业务 key、RQ key 和视频均已精确清理。
+
+下一步进入步骤 5：实现受控下载接口，并由 Nginx `X-Accel-Redirect` 发送视频正文。
