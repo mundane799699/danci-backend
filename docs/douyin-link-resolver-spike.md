@@ -234,3 +234,5 @@ remove_watermark:job:{UUIDv4}
 ```
 
 任务创建时一次性设置 TTL，后续状态和进度更新只修改 Hash，不刷新两小时生命周期。任务过期后 `get()` 返回不存在，业务 API 将在后续步骤映射为 `JOB_NOT_FOUND`。
+
+生产服务器烟雾测试已经完成：临时任务依次经过 `queued -> resolving -> downloading -> ready`，最终进度为 100、文件字节数字段正确，Redis TTL 在状态更新前后均为 7200 秒。测试 key 已在 `finally` 中删除，FastAPI 服务保持健康且没有新增错误日志。
