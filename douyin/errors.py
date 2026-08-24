@@ -18,6 +18,8 @@ ERROR_MESSAGES = {
     "UPSTREAM_CHANGED": "解析服务暂时不可用",
     "JOB_TIMEOUT": "处理超时，请重试",
     "COOKIE_EXPIRED": "抖音 Cookie 缺失或已失效，请更新 Cookie 文件",
+    "FILE_TOO_LARGE": "视频文件过大，暂不支持",
+    "UNSUPPORTED_MEDIA_FORMAT": "当前视频格式暂不支持",
 }
 
 

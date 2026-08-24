@@ -174,3 +174,34 @@ DOUYIN_SKIP_DNS_SAFETY_CHECK=true python -m douyin.cli \
 ## 8. 实现参考与许可
 
 Cookie 管理、详情参数和签名调用链参考 `jiji262/douyin-downloader`。项目内 `douyin/xbogus.py` 和 `douyin/abogus.py` 保留了各自上游的 Apache-2.0 许可与作者声明；没有引入参考项目的浏览器、下载器、数据库或批量任务代码。
+
+## 9. 独立视频下载器
+
+解析阶段之后已经增加独立的服务器视频下载器，当前仍不依赖 Redis、RQ 或 Nginx：
+
+- `douyin/downloader.py`：按候选顺序流式下载、限制文件大小、校验媒体域名和逐跳重定向、检查 `Content-Type` 与 MP4 `ftyp` 签名，并从 `.part` 原子移动为 `.mp4`。
+- `douyin/download_cli.py`：将解析和下载串联到指定测试目录，但不会输出完整上游媒体 URL。
+- `tests/test_douyin_downloader.py`：覆盖正常下载、候选回退、伪装响应、大小超限、流中断、私网重定向、文件发布失败和路径安全。
+
+主要配置：
+
+```dotenv
+DOUYIN_MEDIA_HOSTS=douyinvod.com
+DOUYIN_MAX_MEDIA_BYTES=209715200
+DOUYIN_MEDIA_TIMEOUT_SECONDS=60
+DOUYIN_MEDIA_CHUNK_BYTES=65536
+DOUYIN_DOWNLOADING_DIR=/data/remove-watermark/downloading
+DOUYIN_READY_DIR=/data/remove-watermark/ready
+```
+
+默认媒体白名单保持保守，只包含 `douyinvod.com`。真实回归样本如果出现其他字节系 CDN 主机，应先确认域名归属，再通过 `DOUYIN_MEDIA_HOSTS` 显式加入后缀，不要临时放开为任意 HTTPS 主机。
+
+配置 Cookie 后，可以将真实视频下载到一个明确的测试目录：
+
+```bash
+.venv/bin/python -m douyin.download_cli \
+  'https://v.douyin.com/xxxx/' \
+  --output-root /tmp/remove-watermark-download-test
+```
+
+成功结果只输出 `jobId`、作品元信息、文件字节数、候选序号和本地路径。当前已经用同一条真实样本分别完成本机和生产服务器下载：两端均生成 2,492,850 字节的有效 MP4，且原子发布后没有残留 `.part`；本机 `ffprobe` 检测时长约 10.93 秒。生产服务器磁盘使用率为 35%，下载后 FastAPI 服务保持健康。2026-08-24 经开发者确认，不再补充其余真实样本，将当前结果作为步骤 1 验收基线并进入 Redis 任务阶段。

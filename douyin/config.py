@@ -21,6 +21,17 @@ class DouyinSettings:
     cookie_file: str = os.getenv("DOUYIN_COOKIE_FILE", ".douyin-cookie")
     max_cookie_bytes: int = int(os.getenv("DOUYIN_MAX_COOKIE_BYTES", str(32 * 1024)))
     api_retries: int = int(os.getenv("DOUYIN_API_RETRIES", "2"))
+    max_media_bytes: int = int(os.getenv("DOUYIN_MAX_MEDIA_BYTES", str(200 * 1024 * 1024)))
+    media_timeout_seconds: float = float(os.getenv("DOUYIN_MEDIA_TIMEOUT_SECONDS", "60"))
+    media_chunk_bytes: int = int(os.getenv("DOUYIN_MEDIA_CHUNK_BYTES", str(64 * 1024)))
+    downloading_dir: str = os.getenv(
+        "DOUYIN_DOWNLOADING_DIR",
+        "/data/remove-watermark/downloading",
+    )
+    ready_dir: str = os.getenv(
+        "DOUYIN_READY_DIR",
+        "/data/remove-watermark/ready",
+    )
     user_agent: str = os.getenv(
         "DOUYIN_USER_AGENT",
         (
@@ -32,5 +43,13 @@ class DouyinSettings:
     entry_hosts: tuple[str, ...] = _csv(
         "DOUYIN_ENTRY_HOSTS",
         "v.douyin.com,www.douyin.com,m.douyin.com,www.iesdouyin.com",
+    )
+    media_hosts: tuple[str, ...] = _csv(
+        "DOUYIN_MEDIA_HOSTS",
+        "douyinvod.com",
+    )
+    media_content_types: tuple[str, ...] = _csv(
+        "DOUYIN_MEDIA_CONTENT_TYPES",
+        "video/mp4,application/mp4,application/octet-stream,binary/octet-stream",
     )
 settings = DouyinSettings()

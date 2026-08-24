@@ -2,6 +2,7 @@
 .env.production
 .douyin-cookie
 douyin-cookie.txt
+.data/
 .venv/
 venv/
 uvicorn.log

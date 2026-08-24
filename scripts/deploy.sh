@@ -67,6 +67,10 @@ test -f "$app_dir/requirements.txt"
 install -m 600 "$staged_env" "$app_dir/.env"
 install -d -m 700 /etc/danci
 install -m 600 "$staged_cookie" /etc/danci/douyin-cookie.txt
+install -d -m 700 \
+    /data/remove-watermark \
+    /data/remove-watermark/downloading \
+    /data/remove-watermark/ready
 install -m 644 "$staged_service" /etc/systemd/system/danci-backend.service
 
 "$app_dir/venv/bin/python" -m pip install --disable-pip-version-check -r "$app_dir/requirements.txt"
