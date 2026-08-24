@@ -71,6 +71,8 @@ install -d -m 700 \
     /data/remove-watermark \
     /data/remove-watermark/downloading \
     /data/remove-watermark/ready
+test -s /etc/danci/redis-password.txt
+chmod 600 /etc/danci/redis-password.txt
 install -m 644 "$staged_service" /etc/systemd/system/danci-backend.service
 
 "$app_dir/venv/bin/python" -m pip install --disable-pip-version-check -r "$app_dir/requirements.txt"

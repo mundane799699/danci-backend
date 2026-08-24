@@ -205,3 +205,32 @@ DOUYIN_READY_DIR=/data/remove-watermark/ready
 ```
 
 成功结果只输出 `jobId`、作品元信息、文件字节数、候选序号和本地路径。当前已经用同一条真实样本分别完成本机和生产服务器下载：两端均生成 2,492,850 字节的有效 MP4，且原子发布后没有残留 `.part`；本机 `ffprobe` 检测时长约 10.93 秒。生产服务器磁盘使用率为 35%，下载后 FastAPI 服务保持健康。2026-08-24 经开发者确认，不再补充其余真实样本，将当前结果作为步骤 1 验收基线并进入 Redis 任务阶段。
+
+## 10. Redis 任务模型
+
+Redis 阶段已经完成独立的任务模型和存储层，尚未接入 RQ 和任务 API：
+
+- `douyin/jobs.py`：定义 `queued -> resolving -> downloading -> ready`、失败和过期状态，集中校验 UUID、进度、时间戳和状态跳转。
+- `douyin/job_store.py`：使用 Redis Hash 保存任务，通过 `WATCH/MULTI` 防止并发覆盖；更新 Hash 时保留原 TTL。
+- `douyin/redis_client.py`：统一创建短超时 Redis 客户端，并支持从受限文件读取生产密码。
+- `tests/test_douyin_jobs.py`：覆盖纯模型、真实 Redis、TTL、过期、重复任务、连接失败和密码文件。
+
+配置：
+
+```dotenv
+DOUYIN_REDIS_URL=redis://127.0.0.1:6379/0
+DOUYIN_REDIS_TIMEOUT_SECONDS=2
+DOUYIN_REDIS_PASSWORD_FILE=/etc/danci/redis-password.txt
+DOUYIN_JOB_TTL_SECONDS=7200
+DOUYIN_JOB_KEY_PREFIX=remove_watermark:job
+```
+
+本地 Redis 没有密码时不设置 `DOUYIN_REDIS_PASSWORD_FILE`。生产 Redis 密码只保存在 `/etc/danci/redis-password.txt`，权限为 `0600`；代码、`.env.production`、日志和 Redis URL 都不包含密码。
+
+Redis key 格式为：
+
+```text
+remove_watermark:job:{UUIDv4}
+```
+
+任务创建时一次性设置 TTL，后续状态和进度更新只修改 Hash，不刷新两小时生命周期。任务过期后 `get()` 返回不存在，业务 API 将在后续步骤映射为 `JOB_NOT_FOUND`。
