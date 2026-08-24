@@ -46,6 +46,9 @@ class DouyinSettings:
     rq_job_timeout_seconds: int = int(os.getenv("DOUYIN_RQ_JOB_TIMEOUT_SECONDS", "300"))
     rq_result_ttl_seconds: int = int(os.getenv("DOUYIN_RQ_RESULT_TTL_SECONDS", "300"))
     rq_failure_ttl_seconds: int = int(os.getenv("DOUYIN_RQ_FAILURE_TTL_SECONDS", "3600"))
+    part_ttl_seconds: int = int(os.getenv("DOUYIN_PART_TTL_SECONDS", "900"))
+    ready_file_ttl_seconds: int = int(os.getenv("DOUYIN_READY_FILE_TTL_SECONDS", "7200"))
+    disk_usage_limit_percent: float = float(os.getenv("DOUYIN_DISK_USAGE_LIMIT_PERCENT", "80"))
     user_agent: str = os.getenv(
         "DOUYIN_USER_AGENT",
         (

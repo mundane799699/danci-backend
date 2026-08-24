@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from .config import settings
+from .cleanup import ensure_storage_capacity
 from .errors import DouyinError, error
 from .job_store import JobStoreError, RedisJobStore
 from .jobs import JobModelError, canonical_job_id, utc_now
@@ -40,7 +41,7 @@ def _error_response(
             status_code = 404
         elif exc.code == "FILE_NOT_READY":
             status_code = 409
-        elif exc.code == "SERVICE_UNAVAILABLE":
+        elif exc.code in {"DISK_PRESSURE", "SERVICE_UNAVAILABLE"}:
             status_code = 503
         else:
             status_code = 502
@@ -105,6 +106,7 @@ def create_job(payload: ResolveRequest):
             settings.max_share_text_bytes,
         )
         store = get_job_store()
+        ensure_storage_capacity(settings, store=store)
         job = store.create(source_url, request_id=request_id)
         get_job_queue().enqueue(job.job_id)
         return CreateJobResponse(
@@ -122,6 +124,12 @@ def create_job(payload: ResolveRequest):
             except JobStoreError:
                 pass
         return _error_response(request_id, error("SERVICE_UNAVAILABLE", retryable=True))
+    except OSError:
+        return _error_response(
+            request_id,
+            error("STORAGE_ERROR", retryable=True),
+            status_code=503,
+        )
 
 
 @router.get(

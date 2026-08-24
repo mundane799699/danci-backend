@@ -24,6 +24,7 @@ ERROR_MESSAGES = {
     "INTERNAL_ERROR": "处理服务暂时不可用，请稍后重试",
     "JOB_NOT_FOUND": "任务不存在或已过期",
     "FILE_NOT_READY": "视频仍在处理中",
+    "DISK_PRESSURE": "服务器存储空间不足，请稍后重试",
     "SERVICE_UNAVAILABLE": "任务服务暂时不可用，请稍后重试",
 }
 

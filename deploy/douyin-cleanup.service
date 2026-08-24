@@ -1,0 +1,22 @@
+[Unit]
+Description=Remove expired Douyin temporary video files
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/home/danci/danci-backend
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/danci/danci-backend/venv/bin/python -m douyin.cleanup_cli
+Nice=10
+IOSchedulingClass=idle
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/data/remove-watermark
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

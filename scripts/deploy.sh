@@ -8,6 +8,8 @@ PRODUCTION_ENV="${DEPLOY_ENV_FILE:-${PROJECT_DIR}/.env.production}"
 COOKIE_SOURCE="${DEPLOY_COOKIE_FILE:-${PROJECT_DIR}/douyin-cookie.txt}"
 SERVICE_SOURCE="${PROJECT_DIR}/deploy/danci-backend.service"
 WORKER_SERVICE_SOURCE="${PROJECT_DIR}/deploy/douyin-worker.service"
+CLEANUP_SERVICE_SOURCE="${PROJECT_DIR}/deploy/douyin-cleanup.service"
+CLEANUP_TIMER_SOURCE="${PROJECT_DIR}/deploy/douyin-cleanup.timer"
 SSH_OPTIONS=(-o BatchMode=yes -o ConnectTimeout=15)
 
 require_file() {
@@ -21,6 +23,8 @@ require_file "$PRODUCTION_ENV"
 require_file "$COOKIE_SOURCE"
 require_file "$SERVICE_SOURCE"
 require_file "$WORKER_SERVICE_SOURCE"
+require_file "$CLEANUP_SERVICE_SOURCE"
+require_file "$CLEANUP_TIMER_SOURCE"
 
 printf '检查 SSH 连接...\n'
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_HOST" true
@@ -43,15 +47,20 @@ remote_env="/tmp/danci-backend.env.$$"
 remote_cookie="/tmp/douyin-cookie.$$"
 remote_service="/tmp/danci-backend.service.$$"
 remote_worker_service="/tmp/douyin-worker.service.$$"
+remote_cleanup_service="/tmp/douyin-cleanup.service.$$"
+remote_cleanup_timer="/tmp/douyin-cleanup.timer.$$"
 
 rsync -lp "$PRODUCTION_ENV" "${REMOTE_HOST}:${remote_env}"
 rsync -lp "$COOKIE_SOURCE" "${REMOTE_HOST}:${remote_cookie}"
 rsync -lp "$SERVICE_SOURCE" "${REMOTE_HOST}:${remote_service}"
 rsync -lp "$WORKER_SERVICE_SOURCE" "${REMOTE_HOST}:${remote_worker_service}"
+rsync -lp "$CLEANUP_SERVICE_SOURCE" "${REMOTE_HOST}:${remote_cleanup_service}"
+rsync -lp "$CLEANUP_TIMER_SOURCE" "${REMOTE_HOST}:${remote_cleanup_timer}"
 
 printf '安装依赖并切换 systemd 服务...\n'
 ssh "${SSH_OPTIONS[@]}" "$REMOTE_HOST" bash -s -- \
-    "$REMOTE_APP_DIR" "$remote_env" "$remote_cookie" "$remote_service" "$remote_worker_service" <<'REMOTE_SCRIPT'
+    "$REMOTE_APP_DIR" "$remote_env" "$remote_cookie" "$remote_service" "$remote_worker_service" \
+    "$remote_cleanup_service" "$remote_cleanup_timer" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 app_dir="$1"
@@ -59,11 +68,21 @@ staged_env="$2"
 staged_cookie="$3"
 staged_service="$4"
 staged_worker_service="$5"
+staged_cleanup_service="$6"
+staged_cleanup_timer="$7"
 backend_service="danci-backend.service"
 worker_service="douyin-worker.service"
+cleanup_service="douyin-cleanup.service"
+cleanup_timer="douyin-cleanup.timer"
 
 cleanup() {
-    rm -f "$staged_env" "$staged_cookie" "$staged_service" "$staged_worker_service"
+    rm -f \
+        "$staged_env" \
+        "$staged_cookie" \
+        "$staged_service" \
+        "$staged_worker_service" \
+        "$staged_cleanup_service" \
+        "$staged_cleanup_timer"
 }
 trap cleanup EXIT
 
@@ -81,11 +100,13 @@ test -s /etc/danci/redis-password.txt
 chmod 600 /etc/danci/redis-password.txt
 install -m 644 "$staged_service" /etc/systemd/system/danci-backend.service
 install -m 644 "$staged_worker_service" /etc/systemd/system/douyin-worker.service
+install -m 644 "$staged_cleanup_service" /etc/systemd/system/douyin-cleanup.service
+install -m 644 "$staged_cleanup_timer" /etc/systemd/system/douyin-cleanup.timer
 
 "$app_dir/venv/bin/python" -m pip install --disable-pip-version-check -r "$app_dir/requirements.txt"
 
 systemctl daemon-reload
-systemctl stop "$backend_service" "$worker_service" 2>/dev/null || true
+systemctl stop "$backend_service" "$worker_service" "$cleanup_timer" 2>/dev/null || true
 
 mapfile -t legacy_pids < <(
     pgrep -f "$app_dir/venv/bin/uvicorn main:app" || true
@@ -108,6 +129,13 @@ fi
 systemctl enable --now "$worker_service"
 systemctl enable --now "$backend_service"
 
+if ! systemctl start "$cleanup_service"; then
+    printf '清理服务首次运行失败。最近日志：\n' >&2
+    journalctl -u "$cleanup_service" -n 80 --no-pager >&2
+    exit 1
+fi
+systemctl enable --now "$cleanup_timer"
+
 healthy=0
 for _ in {1..30}; do
     if curl -fsS --max-time 3 http://127.0.0.1:8000/ >/dev/null; then
@@ -129,8 +157,15 @@ if ! systemctl is-active --quiet "$worker_service"; then
     exit 1
 fi
 
+if ! systemctl is-active --quiet "$cleanup_timer"; then
+    printf '清理定时器启动失败。最近日志：\n' >&2
+    journalctl -u "$cleanup_timer" -n 80 --no-pager >&2
+    exit 1
+fi
+
 systemctl --no-pager --full status "$backend_service" | sed -n '1,12p'
 systemctl --no-pager --full status "$worker_service" | sed -n '1,12p'
+systemctl --no-pager --full status "$cleanup_timer" | sed -n '1,12p'
 REMOTE_SCRIPT
 
-printf '部署完成。查看日志：ssh %s journalctl -u danci-backend -u douyin-worker -f\n' "$REMOTE_HOST"
+printf '部署完成。查看日志：ssh %s journalctl -u danci-backend -u douyin-worker -u douyin-cleanup -f\n' "$REMOTE_HOST"

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from douyin.config import settings
+from douyin.errors import error
 from douyin.job_store import JobStoreUnavailable
 from douyin.jobs import JobRecord, transition_job, utc_now
 from douyin.queueing import JobQueueUnavailable
@@ -37,11 +38,17 @@ class _MemoryStore:
 class JobApiTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
+        self.downloading_dir = Path(self.directory.name) / "downloading"
         self.ready_dir = Path(self.directory.name) / "ready"
+        self.downloading_dir.mkdir()
         self.ready_dir.mkdir()
         self.settings_patch = patch(
             "douyin.router.settings",
-            replace(settings, ready_dir=str(self.ready_dir)),
+            replace(
+                settings,
+                downloading_dir=str(self.downloading_dir),
+                ready_dir=str(self.ready_dir),
+            ),
         )
         self.settings_patch.start()
         app = FastAPI()
@@ -112,6 +119,17 @@ class JobApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["error"]["code"], "SERVICE_UNAVAILABLE")
         self.assertEqual(self.store.records, {})
+
+    def test_disk_pressure_rejects_job_before_redis_create_or_enqueue(self):
+        with patch(
+            "douyin.router.ensure_storage_capacity",
+            side_effect=error("DISK_PRESSURE", retryable=True),
+        ):
+            response = self.create_job()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "DISK_PRESSURE")
+        self.assertEqual(self.store.records, {})
+        self.queue.enqueue.assert_not_called()
 
     def test_get_processing_job(self):
         created = JobRecord.create(SOURCE_URL, 7200)
