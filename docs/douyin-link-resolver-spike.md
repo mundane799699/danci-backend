@@ -316,3 +316,16 @@ DOUYIN_DISK_USAGE_LIMIT_PERCENT=80
 全量自动化测试现为 79 个，全部通过。生产隔离验收制造了过期和未过期的 `.part`/MP4、符号链接及异常文件名：正式服务只删除 1 个过期 `.part`、1 个过期 MP4 和对应 2 个 Redis 任务，其余目标全部保留，失败计数为 0。当前磁盘使用率 33.75%，创建接口经磁盘守卫后正常返回 `202` 并完成 2,492,850 字节真实任务。测试数据已精确清理，FastAPI、Worker 和 cleanup timer 均为 `active`，清理服务结果为 `success` 且日志无新增错误。
 
 下一步进入步骤 7：配置 Nginx `internal`、`alias` 和 `sendfile`，接通真实文件正文发送链路。
+
+## 15. Nginx 文件发送链路
+
+步骤 7 已完成：
+
+- `danci.mundane.ink` 站点包含独立的 `douyin-protected-videos.conf`，配置 `internal`、`alias /data/remove-watermark/ready/`、`sendfile`、禁止目录列表和禁止符号链接。
+- 部署脚本幂等插入站点 include，不覆盖证书、现有代理或其他站点；修改前创建临时备份，只有 `nginx -t` 成功后才 reload，失败会恢复本次部署前配置。
+- 视频目录权限调整为 `root:www 0750`。RQ Worker 使用 `root:www` 和 `UMask=0027`，新视频为 `root:www 0640`，Nginx 只有读取权限。
+- 部署健康检查要求受保护 URI 直访必须返回 404，否则自动回滚 Nginx 变更。
+
+全量自动化测试现为 82 个，全部通过。生产公网 HTTPS 验收完成：任务创建返回 `202`，最终下载接口返回 2,492,850 字节完整 MP4；Range 请求返回 `206` 和正确 `Content-Range`，文件包含有效 `ftyp`，`X-Accel-Redirect` 不会暴露给客户端。实际文件存在时直接访问 `/_protected-videos/{UUID}.mp4` 仍返回 404；下载期间 Uvicorn RSS 增量为 0 KiB，确认视频正文由 Nginx 发送。测试业务 key、RQ key、下载临时文件和服务端 MP4 已精确清理，FastAPI、Worker、cleanup timer 与 Nginx 均正常。
+
+下一步进入步骤 8：在小程序端分阶段接入任务创建与轮询、结果卡片，以及下载保存相册。
