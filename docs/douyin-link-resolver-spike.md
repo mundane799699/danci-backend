@@ -164,6 +164,7 @@ DOUYIN_SKIP_DNS_SAFETY_CHECK=true python -m douyin.cli \
 | `STORAGE_ERROR` | 服务器磁盘写入或原子发布失败 |
 | `INTERNAL_ERROR` | 未分类的内部处理异常 |
 | `FILE_NOT_READY` | 任务仍在解析或下载，视频尚未准备好 |
+| `DISK_PRESSURE` | 存储使用率达到阈值，清理后仍没有足够空间 |
 
 ## 7. 运行与安全注意事项
 
@@ -291,3 +292,27 @@ DOUYIN_RQ_FAILURE_TTL_SECONDS=3600
 全量自动化测试现为 70 个，全部通过，覆盖非法 UUID、路径穿越、不存在、处理中、失败、过期、Redis 故障、文件缺失、尺寸不符和符号链接。生产环境真实任务生成 2,492,850 字节 MP4 后，下载接口返回 HTTP 200、正文长度 0 和正确内部转发头；本轮暂未修改 Nginx，符合分步计划。测试业务 key、RQ key 和视频均已精确清理，FastAPI 与 Worker 保持 `active` 且没有新增错误日志。
 
 下一步进入步骤 6：实现文件清理和磁盘保护；Nginx 内部文件发送链路仍按计划在步骤 7 接入。
+
+## 14. 文件清理和磁盘保护
+
+步骤 6 已完成：
+
+- `douyin/cleanup.py` 只扫描配置中的两个绝对、规范化、非符号链接目录，不递归，也不接受请求参数提供的路径。
+- `downloading/{UUID}.part` 超过 15 分钟后删除；`ready/{UUID}.mp4` 超过 2 小时后删除，并清理对应 Redis 业务任务。
+- 文件名不是规范 UUID、目录、符号链接和未过期文件均跳过；重复执行保持幂等。
+- 如果同一个任务已有未过期的正常 ready MP4，只删除遗留 `.part`，不删除可下载任务。
+- `python -m douyin.cleanup_cli` 不接受任何命令行参数，输出结构化计数；文件或 Redis 清理失败时以非零状态退出。
+- `douyin-cleanup.service` 是受限的 systemd oneshot，只允许写 `/data/remove-watermark`；`douyin-cleanup.timer` 每 5 分钟触发一次。
+- 创建任务前检查 downloading 和 ready 所在卷的最高使用率。达到 80% 时先运行清理，复查后仍不低于阈值则返回 `503/DISK_PRESSURE`，不创建 Redis 任务也不入队。
+
+配置：
+
+```dotenv
+DOUYIN_PART_TTL_SECONDS=900
+DOUYIN_READY_FILE_TTL_SECONDS=7200
+DOUYIN_DISK_USAGE_LIMIT_PERCENT=80
+```
+
+全量自动化测试现为 79 个，全部通过。生产隔离验收制造了过期和未过期的 `.part`/MP4、符号链接及异常文件名：正式服务只删除 1 个过期 `.part`、1 个过期 MP4 和对应 2 个 Redis 任务，其余目标全部保留，失败计数为 0。当前磁盘使用率 33.75%，创建接口经磁盘守卫后正常返回 `202` 并完成 2,492,850 字节真实任务。测试数据已精确清理，FastAPI、Worker 和 cleanup timer 均为 `active`，清理服务结果为 `success` 且日志无新增错误。
+
+下一步进入步骤 7：配置 Nginx `internal`、`alias` 和 `sendfile`，接通真实文件正文发送链路。
