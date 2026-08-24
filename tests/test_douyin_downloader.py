@@ -81,6 +81,45 @@ class DownloaderTests(unittest.TestCase):
         self.assertEqual(ready_path.read_bytes(), MP4_BYTES)
         self.assertFalse((self.root / "downloading" / f"{self.job_id}.part").exists())
 
+    def test_reports_stream_progress_without_exposing_media_url(self):
+        updates: list[tuple[int, int | None]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "video/mp4", "content-length": str(len(MP4_BYTES))},
+                content=MP4_BYTES,
+            )
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            DouyinVideoDownloader(self.config(), client).download(
+                self.job_id,
+                [self.candidate()],
+                progress_callback=lambda written, total: updates.append((written, total)),
+            )
+
+        self.assertGreater(len(updates), 1)
+        self.assertEqual(updates[-1], (len(MP4_BYTES), len(MP4_BYTES)))
+        self.assertEqual([item[0] for item in updates], sorted(item[0] for item in updates))
+
+    def test_callback_failure_removes_part_file(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, headers={"content-type": "video/mp4"}, content=MP4_BYTES)
+
+        def fail_callback(bytes_written: int, total_bytes: int | None) -> None:
+            raise RuntimeError("progress store failed")
+
+        part_path = self.root / "downloading" / f"{self.job_id}.part"
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            with self.assertRaises(RuntimeError):
+                DouyinVideoDownloader(self.config(), client).download(
+                    self.job_id,
+                    [self.candidate()],
+                    progress_callback=fail_callback,
+                )
+
+        self.assertFalse(part_path.exists())
+
     def test_rejects_html_response_even_when_status_is_success(self):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, headers={"content-type": "text/html"}, content=b"<html></html>")

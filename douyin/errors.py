@@ -20,6 +20,8 @@ ERROR_MESSAGES = {
     "COOKIE_EXPIRED": "抖音 Cookie 缺失或已失效，请更新 Cookie 文件",
     "FILE_TOO_LARGE": "视频文件过大，暂不支持",
     "UNSUPPORTED_MEDIA_FORMAT": "当前视频格式暂不支持",
+    "STORAGE_ERROR": "服务器存储暂时不可用，请稍后重试",
+    "INTERNAL_ERROR": "处理服务暂时不可用，请稍后重试",
 }
 
 

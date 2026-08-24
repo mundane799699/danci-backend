@@ -462,6 +462,8 @@ class DouyinCookieResolver:
 class DouyinResolver:
     """Resolve through the lightweight Cookie-authenticated web API."""
 
+    resolver_version = DouyinCookieResolver.resolver_version
+
     def __init__(self, config: DouyinSettings = settings):
         self.config = config
 

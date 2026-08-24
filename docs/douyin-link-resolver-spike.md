@@ -161,6 +161,8 @@ DOUYIN_SKIP_DNS_SAFETY_CHECK=true python -m douyin.cli \
 | `UPSTREAM_RATE_LIMITED` | 上游限流 |
 | `UPSTREAM_CHANGED` | 上游响应结构或签名规则变化 |
 | `JOB_TIMEOUT` | 展开短链或详情请求超时 |
+| `STORAGE_ERROR` | 服务器磁盘写入或原子发布失败 |
+| `INTERNAL_ERROR` | 未分类的内部处理异常 |
 
 ## 7. 运行与安全注意事项
 
@@ -236,3 +238,16 @@ remove_watermark:job:{UUIDv4}
 任务创建时一次性设置 TTL，后续状态和进度更新只修改 Hash，不刷新两小时生命周期。任务过期后 `get()` 返回不存在，业务 API 将在后续步骤映射为 `JOB_NOT_FOUND`。
 
 生产服务器烟雾测试已经完成：临时任务依次经过 `queued -> resolving -> downloading -> ready`，最终进度为 100、文件字节数字段正确，Redis TTL 在状态更新前后均为 7200 秒。测试 key 已在 `finally` 中删除，FastAPI 服务保持健康且没有新增错误日志。
+
+## 11. 同步任务编排
+
+同步任务编排已经将前面三个独立组件串联起来，尚未引入 RQ：
+
+- `douyin/processor.py`：提供 `DouyinJobProcessor.process(job_id)` 和模块级 `process_job(job_id)`。
+- `douyin/process_cli.py`：创建新任务或处理已经存在的 `jobId`，用于 RQ 接入前的完整链路测试。
+- 下载器提供可选进度回调，将已知 `Content-Length` 的下载进度映射到 Redis 的 40～95，完成后进入 100。
+- 预期的 `DouyinError` 写入稳定失败码；磁盘错误写入 `STORAGE_ERROR`；未分类异常写入 `INTERNAL_ERROR`。
+- Redis 读写故障不会被伪装成普通视频失败，而是直接抛给未来的 Worker 重试或告警。
+- 已经处于 `ready`、`failed` 或 `expired` 的终态任务重复执行时直接返回当前记录，不重复下载；处于 `resolving` 或 `downloading` 的任务拒绝并发重复执行。
+
+本机真实链路已经完成：任务进入 `ready`，进度为 100，文件为 2,492,850 字节有效 MP4，Redis 记录包含 `cookie-api-v1` 解析器版本，TTL 保持有效且没有 `.part` 残留。本次测试视频和测试 key 已在验证后精确删除。当前全量自动化测试为 48 个，全部通过。

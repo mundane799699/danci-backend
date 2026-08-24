@@ -2,6 +2,7 @@ import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -18,6 +19,7 @@ DOWNLOAD_USER_AGENT = (
     "Chrome/139.0.0.0 Safari/537.36"
 )
 MP4_HEADER_BYTES = 12
+ProgressCallback = Callable[[int, int | None], None]
 
 
 @dataclass(frozen=True)
@@ -82,7 +84,7 @@ class DouyinVideoDownloader:
                 raise
         return normalized
 
-    def _check_response(self, response: httpx.Response) -> None:
+    def _check_response(self, response: httpx.Response) -> int | None:
         if response.status_code == 429:
             raise error("UPSTREAM_RATE_LIMITED", retryable=True)
         if response.status_code in (404, 410):
@@ -106,6 +108,8 @@ class DouyinVideoDownloader:
                 raise error("UNSUPPORTED_MEDIA_FORMAT")
             if announced_bytes > self.config.max_media_bytes:
                 raise error("FILE_TOO_LARGE")
+            return announced_bytes
+        return None
 
     def _download_candidate(
         self,
@@ -113,6 +117,7 @@ class DouyinVideoDownloader:
         candidate: MediaCandidate,
         part_path: Path,
         ready_path: Path,
+        progress_callback: ProgressCallback | None,
     ) -> int:
         current_url = self._validate_url(candidate.url)
 
@@ -128,7 +133,7 @@ class DouyinVideoDownloader:
                     current_url = self._validate_url(urljoin(current_url, location))
                     continue
 
-                self._check_response(response)
+                announced_bytes = self._check_response(response)
                 total_bytes = 0
                 header = bytearray()
                 header_checked = False
@@ -147,6 +152,8 @@ class DouyinVideoDownloader:
                                 _validate_mp4_header(bytes(header))
                                 header_checked = True
                         target.write(chunk)
+                        if progress_callback is not None:
+                            progress_callback(total_bytes, announced_bytes)
 
                     if not header_checked:
                         _validate_mp4_header(bytes(header))
@@ -158,7 +165,13 @@ class DouyinVideoDownloader:
 
         raise error("VIDEO_UNAVAILABLE")
 
-    def download(self, job_id: str, candidates: list[MediaCandidate]) -> DownloadResult:
+    def download(
+        self,
+        job_id: str,
+        candidates: list[MediaCandidate],
+        *,
+        progress_callback: ProgressCallback | None = None,
+    ) -> DownloadResult:
         canonical_job_id = _canonical_job_id(job_id)
         if not candidates:
             raise error("VIDEO_UNAVAILABLE")
@@ -190,6 +203,7 @@ class DouyinVideoDownloader:
                         candidate,
                         part_path,
                         ready_path,
+                        progress_callback,
                     )
                     return DownloadResult(
                         job_id=canonical_job_id,
@@ -207,6 +221,9 @@ class DouyinVideoDownloader:
                     last_error = error("UPSTREAM_CHANGED", retryable=True)
                     part_path.unlink(missing_ok=True)
                 except OSError:
+                    part_path.unlink(missing_ok=True)
+                    raise
+                except Exception:
                     part_path.unlink(missing_ok=True)
                     raise
 

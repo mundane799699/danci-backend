@@ -26,7 +26,7 @@ uvicorn main:app --reload
 
 ## 抖音视频处理
 
-当前已经完成公开单视频解析、服务器流式下载以及 Redis 任务状态存储；尚未接入 RQ、任务 API 和 Nginx 下载接口。解析使用手工维护的抖音 Cookie 和纯 HTTP 请求，不启动 Chrome。先把浏览器中复制的完整 Cookie 请求头保存到项目根目录 `.douyin-cookie`（该文件不会提交到 Git）：
+当前已经完成公开单视频解析、服务器流式下载、Redis 任务状态存储以及同步任务编排；尚未接入 RQ、任务 API 和 Nginx 下载接口。解析使用手工维护的抖音 Cookie 和纯 HTTP 请求，不启动 Chrome。先把浏览器中复制的完整 Cookie 请求头保存到项目根目录 `.douyin-cookie`（该文件不会提交到 Git）：
 
 ```bash
 chmod 600 .douyin-cookie
@@ -36,6 +36,12 @@ chmod 600 .douyin-cookie
 
 ```bash
 python -m douyin.cli '这里粘贴完整抖音分享文案'
+```
+
+需要同步测试“创建任务 → 解析 → 下载 → ready”完整链路时运行：
+
+```bash
+python -m douyin.process_cli '这里粘贴完整抖音分享文案'
 ```
 
 Cookie 缺失或失效时会返回 `COOKIE_EXPIRED`，替换 `.douyin-cookie` 后不需要重启服务。
