@@ -64,7 +64,7 @@ Redis 任务默认使用 `redis://127.0.0.1:6379/0`，任务 TTL 为两小时。
 ./scripts/deploy.sh
 ```
 
-脚本会依次完成：同步当前本地代码、复制 `.env.production`、安全复制 Cookie、检查 `/etc/danci/redis-password.txt`、创建 `/data/remove-watermark/downloading` 和 `/data/remove-watermark/ready`、安装依赖、启动 FastAPI 与 RQ Worker、验证清理命令、启用五分钟清理定时器，以及执行健康检查。部署脚本不运行自动化测试。服务器现有 Nginx 路由独立维护，部署脚本不会修改 Nginx 配置。
+脚本会依次完成：同步当前本地代码、复制 `.env.production`、安全复制 Cookie、检查 `/etc/danci/redis-password.txt`、创建受限的视频目录、安装依赖、启动 FastAPI 与 RQ Worker、验证清理命令、启用五分钟清理定时器、幂等安装 Nginx 内部视频 location，以及执行健康与直访隔离检查。Nginx 变更会先备份，只有 `nginx -t` 通过后才 reload，失败时自动恢复本次部署前的站点配置。部署脚本不运行自动化测试。
 
 服务管理：
 
