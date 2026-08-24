@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,3 +54,36 @@ class ResolveResponse(ApiModel):
     cover_url: str | None = Field(default=None, alias="coverUrl")
     video_url: str = Field(alias="videoUrl")
     candidates: list[MediaCandidateResponse]
+
+
+class CreateJobResponse(ApiModel):
+    request_id: str = Field(alias="requestId")
+    job_id: str = Field(alias="jobId")
+    state: Literal["queued"]
+    created_at: datetime = Field(alias="createdAt")
+
+
+class JobVideoResponse(ApiModel):
+    aweme_id: str = Field(alias="awemeId")
+    title: str
+    author_name: str = Field(alias="authorName")
+    duration_ms: int | None = Field(default=None, alias="durationMs")
+    bytes_written: int = Field(alias="bytes")
+    download_url: str = Field(alias="downloadUrl")
+    expires_at: datetime = Field(alias="expiresAt")
+
+
+class JobErrorResponse(ApiModel):
+    code: str
+    message: str
+    retryable: bool
+
+
+class JobStatusResponse(ApiModel):
+    request_id: str = Field(alias="requestId")
+    job_id: str = Field(alias="jobId")
+    state: Literal["queued", "resolving", "downloading", "ready", "failed", "expired"]
+    stage: str
+    progress: int
+    video: JobVideoResponse | None = None
+    error: JobErrorResponse | None = None

@@ -27,12 +27,16 @@ def _load_password(filename: str | None) -> str | None:
     return password
 
 
-def create_redis_client(config: DouyinSettings = settings) -> Redis:
+def create_redis_client(
+    config: DouyinSettings = settings,
+    *,
+    decode_responses: bool = True,
+) -> Redis:
     password = _load_password(config.redis_password_file)
     authentication = {"password": password} if password is not None else {}
     return Redis.from_url(
         config.redis_url,
-        decode_responses=True,
+        decode_responses=decode_responses,
         socket_connect_timeout=config.redis_timeout_seconds,
         socket_timeout=config.redis_timeout_seconds,
         health_check_interval=30,

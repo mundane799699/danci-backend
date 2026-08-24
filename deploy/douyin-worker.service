@@ -1,0 +1,20 @@
+[Unit]
+Description=Douyin RQ worker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/danci/danci-backend
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/danci/danci-backend/venv/bin/python -m douyin.worker
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillSignal=SIGTERM
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

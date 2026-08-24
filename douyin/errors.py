@@ -22,6 +22,8 @@ ERROR_MESSAGES = {
     "UNSUPPORTED_MEDIA_FORMAT": "当前视频格式暂不支持",
     "STORAGE_ERROR": "服务器存储暂时不可用，请稍后重试",
     "INTERNAL_ERROR": "处理服务暂时不可用，请稍后重试",
+    "JOB_NOT_FOUND": "任务不存在或已过期",
+    "SERVICE_UNAVAILABLE": "任务服务暂时不可用，请稍后重试",
 }
 
 

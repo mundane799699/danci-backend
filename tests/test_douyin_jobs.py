@@ -268,6 +268,10 @@ class RedisClientTests(unittest.TestCase):
             )
             client = create_redis_client(config)
             self.assertEqual(client.connection_pool.connection_kwargs["password"], "test-password")
+            self.assertTrue(client.connection_pool.connection_kwargs["decode_responses"])
+
+            binary_client = create_redis_client(config, decode_responses=False)
+            self.assertFalse(binary_client.connection_pool.connection_kwargs["decode_responses"])
 
     def test_missing_password_file_is_rejected(self):
         config = DouyinSettings(redis_password_file="/path/that/does/not/exist")

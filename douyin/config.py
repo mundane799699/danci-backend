@@ -42,6 +42,10 @@ class DouyinSettings:
     redis_timeout_seconds: float = float(os.getenv("DOUYIN_REDIS_TIMEOUT_SECONDS", "2"))
     job_ttl_seconds: int = int(os.getenv("DOUYIN_JOB_TTL_SECONDS", "7200"))
     job_key_prefix: str = os.getenv("DOUYIN_JOB_KEY_PREFIX", "remove_watermark:job")
+    rq_queue_name: str = os.getenv("DOUYIN_RQ_QUEUE_NAME", "remove_watermark")
+    rq_job_timeout_seconds: int = int(os.getenv("DOUYIN_RQ_JOB_TIMEOUT_SECONDS", "300"))
+    rq_result_ttl_seconds: int = int(os.getenv("DOUYIN_RQ_RESULT_TTL_SECONDS", "300"))
+    rq_failure_ttl_seconds: int = int(os.getenv("DOUYIN_RQ_FAILURE_TTL_SECONDS", "3600"))
     user_agent: str = os.getenv(
         "DOUYIN_USER_AGENT",
         (
