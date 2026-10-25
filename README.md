@@ -26,7 +26,7 @@ uvicorn main:app --reload
 
 ## 抖音视频处理
 
-当前已经完成公开单视频解析、服务器流式下载、Redis 任务状态存储以及同步任务编排；尚未接入 RQ、任务 API 和 Nginx 下载接口。解析使用手工维护的抖音 Cookie 和纯 HTTP 请求，不启动 Chrome。先把浏览器中复制的完整 Cookie 请求头保存到项目根目录 `.douyin-cookie`（该文件不会提交到 Git）：
+当前已经完成公开单视频解析、服务器流式下载、Redis 任务状态存储以及同步任务编排。解析使用手工维护的抖音 Cookie，并通过 Playwright Chromium 打开作品页，让页面安全 SDK 为详情请求生成当前有效的签名。先把浏览器中复制的完整 Cookie 请求头保存到项目根目录 `.douyin-cookie`（该文件不会提交到 Git）：
 
 ```bash
 chmod 600 .douyin-cookie
@@ -44,7 +44,11 @@ python -m douyin.cli '这里粘贴完整抖音分享文案'
 python -m douyin.process_cli '这里粘贴完整抖音分享文案'
 ```
 
-Cookie 缺失或失效时会返回 `COOKIE_EXPIRED`，替换 `.douyin-cookie` 后不需要重启服务。
+Cookie 缺失或失效时会返回 `COOKIE_EXPIRED`，替换 `.douyin-cookie` 后不需要重启服务。首次本地运行前安装与当前 Playwright 版本匹配的 Chromium：
+
+```bash
+playwright install chromium
+```
 
 也可以启动不依赖项目数据库的独立 API：
 
@@ -64,7 +68,7 @@ Redis 任务默认使用 `redis://127.0.0.1:6379/0`，任务 TTL 为两小时。
 ./scripts/deploy.sh
 ```
 
-脚本会依次完成：同步当前本地代码、复制 `.env.production`、安全复制 Cookie、检查 `/etc/danci/redis-password.txt`、创建受限的视频目录、安装依赖、启动 FastAPI 与 RQ Worker、验证清理命令、启用五分钟清理定时器、幂等安装 Nginx 内部视频 location，以及执行健康与直访隔离检查。Nginx 变更会先备份，只有 `nginx -t` 通过后才 reload，失败时自动恢复本次部署前的站点配置。部署脚本不运行自动化测试。
+脚本会依次完成：同步当前本地代码、复制 `.env.production`、安全复制 Cookie、检查 `/etc/danci/redis-password.txt`、创建受限的视频目录、安装依赖与 Playwright Chromium、启动 FastAPI 与 RQ Worker、验证清理命令、启用五分钟清理定时器、幂等安装 Nginx 内部视频 location，以及执行健康与直访隔离检查。Nginx 变更会先备份，只有 `nginx -t` 通过后才 reload，失败时自动恢复本次部署前的站点配置。部署脚本不运行自动化测试。
 
 服务管理：
 

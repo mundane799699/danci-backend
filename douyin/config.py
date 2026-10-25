@@ -26,6 +26,11 @@ class DouyinSettings:
     cookie_file: str = os.getenv("DOUYIN_COOKIE_FILE", ".douyin-cookie")
     max_cookie_bytes: int = int(os.getenv("DOUYIN_MAX_COOKIE_BYTES", str(32 * 1024)))
     api_retries: int = int(os.getenv("DOUYIN_API_RETRIES", "2"))
+    browser_resolver_enabled: bool = (
+        os.getenv("DOUYIN_BROWSER_RESOLVER_ENABLED", "true").lower() == "true"
+    )
+    browser_headless: bool = os.getenv("DOUYIN_BROWSER_HEADLESS", "true").lower() == "true"
+    browser_timeout_seconds: float = float(os.getenv("DOUYIN_BROWSER_TIMEOUT_SECONDS", "25"))
     max_media_bytes: int = int(os.getenv("DOUYIN_MAX_MEDIA_BYTES", str(200 * 1024 * 1024)))
     media_timeout_seconds: float = float(os.getenv("DOUYIN_MEDIA_TIMEOUT_SECONDS", "60"))
     media_chunk_bytes: int = int(os.getenv("DOUYIN_MEDIA_CHUNK_BYTES", str(64 * 1024)))

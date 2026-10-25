@@ -1,8 +1,9 @@
 import html
 import json
+import threading
 from html.parser import HTMLParser
 from typing import Any, Protocol
-from urllib.parse import unquote, urlencode
+from urllib.parse import unquote, urlencode, urlsplit
 
 import httpx
 
@@ -11,7 +12,7 @@ from .config import DouyinSettings, settings
 from .cookies import load_cookie_file, ms_token
 from .errors import DouyinError, error
 from .models import DouyinVideoMetadata, MediaCandidate
-from .security import extract_aweme_id, redirect_target, validate_public_dns
+from .security import extract_aweme_id, host_matches, redirect_target, validate_public_dns
 from .xbogus import XBogus
 
 MOBILE_USER_AGENT = (
@@ -459,16 +460,134 @@ class DouyinCookieResolver:
                 client.close()
 
 
-class DouyinResolver:
-    """Resolve through the lightweight Cookie-authenticated web API."""
+_BROWSER_RESOLVER_LOCK = threading.Lock()
 
-    resolver_version = DouyinCookieResolver.resolver_version
+
+class DouyinBrowserResolver:
+    """Resolve inside a real Douyin page so its security SDK signs the detail request."""
+
+    resolver_version = "browser-detail-v1"
+    detail_path = "/aweme/v1/web/aweme/detail/"
 
     def __init__(self, config: DouyinSettings = settings):
         self.config = config
 
     def can_handle(self, url: str) -> bool:
-        return DouyinCookieResolver(self.config).can_handle(url)
+        host = (urlsplit(url).hostname or "").lower()
+        return host_matches(host, self.config.entry_hosts)
+
+    def _browser_cookies(self, cookies: dict[str, str]) -> list[dict[str, str]]:
+        return [
+            {"name": name, "value": value, "domain": ".douyin.com", "path": "/"}
+            for name, value in cookies.items()
+        ]
 
     def resolve(self, url: str) -> DouyinVideoMetadata:
+        cookies = load_cookie_file(self.config.cookie_file, self.config.max_cookie_bytes)
+        if not self.config.skip_dns_safety_check:
+            validate_public_dns(url)
+        with httpx.Client(
+            timeout=self.config.request_timeout_seconds,
+            follow_redirects=False,
+            cookies=cookies,
+        ) as client:
+            aweme_id = DouyinCookieResolver(self.config)._expand_aweme_id(client, url, cookies)
+        target_url = f"https://www.douyin.com/video/{aweme_id}"
+        if not self.config.skip_dns_safety_check:
+            validate_public_dns(target_url)
+
+        acquired = _BROWSER_RESOLVER_LOCK.acquire(timeout=self.config.browser_timeout_seconds)
+        if not acquired:
+            raise error("SERVICE_UNAVAILABLE", retryable=True)
+        try:
+            return self._resolve_in_browser(target_url, aweme_id, cookies)
+        finally:
+            _BROWSER_RESOLVER_LOCK.release()
+
+    def _resolve_in_browser(
+        self,
+        url: str,
+        expected_id: str,
+        cookies: dict[str, str],
+    ) -> DouyinVideoMetadata:
+        try:
+            from playwright.sync_api import Error as PlaywrightError
+            from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            raise error("SERVICE_UNAVAILABLE", retryable=True)
+
+        timeout_ms = max(1, int(self.config.browser_timeout_seconds * 1000))
+
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(
+                    headless=self.config.browser_headless,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                    ],
+                )
+                try:
+                    context = browser.new_context(
+                        user_agent=self.config.user_agent,
+                        locale="zh-CN",
+                        viewport={"width": 1536, "height": 864},
+                    )
+                    context.add_cookies(self._browser_cookies(cookies))
+                    page = context.new_page()
+                    with page.expect_response(
+                        lambda response: urlsplit(response.url).path == self.detail_path,
+                        timeout=timeout_ms,
+                    ) as pending_response:
+                        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+
+                    response = pending_response.value
+                    if response.status == 401:
+                        raise error("COOKIE_EXPIRED")
+                    if response.status in (403, 429):
+                        raise error("UPSTREAM_RATE_LIMITED", retryable=True)
+                    if response.status in (404, 410):
+                        raise error("VIDEO_UNAVAILABLE")
+                    if response.status != 200:
+                        raise error("UPSTREAM_CHANGED", retryable=True)
+
+                    try:
+                        payload = response.json()
+                    except ValueError:
+                        raise error("UPSTREAM_CHANGED", retryable=True)
+                    if not isinstance(payload, dict):
+                        raise error("UPSTREAM_CHANGED", retryable=True)
+                    if DouyinCookieResolver._is_cookie_error(payload):
+                        raise error("COOKIE_EXPIRED")
+
+                    detail = payload.get("aweme_detail")
+                    if not isinstance(detail, dict):
+                        raise error("VIDEO_UNAVAILABLE")
+                    return parse_aweme(detail, expected_id)
+                finally:
+                    browser.close()
+        except DouyinError:
+            raise
+        except PlaywrightTimeoutError:
+            raise error("UPSTREAM_RATE_LIMITED", retryable=True)
+        except PlaywrightError:
+            raise error("SERVICE_UNAVAILABLE", retryable=True)
+
+
+class DouyinResolver:
+    """Resolve through a signed browser page, with the legacy HTTP path opt-in."""
+
+    resolver_version = DouyinBrowserResolver.resolver_version
+
+    def __init__(self, config: DouyinSettings = settings):
+        self.config = config
+
+    def can_handle(self, url: str) -> bool:
+        return DouyinBrowserResolver(self.config).can_handle(url)
+
+    def resolve(self, url: str) -> DouyinVideoMetadata:
+        if self.config.browser_resolver_enabled:
+            return DouyinBrowserResolver(self.config).resolve(url)
         return DouyinCookieResolver(self.config).resolve(url)

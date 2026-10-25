@@ -119,6 +119,11 @@ install -m 644 "$staged_cleanup_service" /etc/systemd/system/douyin-cleanup.serv
 install -m 644 "$staged_cleanup_timer" /etc/systemd/system/douyin-cleanup.timer
 
 "$app_dir/venv/bin/python" -m pip install --disable-pip-version-check -r "$app_dir/requirements.txt"
+if command -v apt-get >/dev/null 2>&1; then
+    "$app_dir/venv/bin/python" -m playwright install --with-deps chromium
+else
+    "$app_dir/venv/bin/python" -m playwright install chromium
+fi
 
 systemctl daemon-reload
 systemctl stop "$backend_service" "$worker_service" "$cleanup_timer" 2>/dev/null || true

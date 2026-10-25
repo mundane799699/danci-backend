@@ -1,10 +1,10 @@
-# 抖音 Cookie HTTP 解析方案
+# 抖音 Cookie 浏览器解析方案
 
 ## 1. 目标与边界
 
 本阶段输入抖音公开单视频分享文案，返回作品元信息和最佳原始播放 URL。
 
-解析过程只使用 HTTP、Cookie 和纯 Python 签名，不启动 Chrome，不下载或缓存视频，也不依赖 Redis、MySQL、Nginx。暂不支持图文、直播、私密或需要额外验证的作品。
+解析过程使用 Cookie 和无界面 Playwright Chromium，不下载或缓存视频，也不依赖 Redis、MySQL、Nginx。暂不支持图文、直播、私密或需要额外验证的作品。
 
 “无水印”指选择详情接口返回的直接 CDN 播放候选，不使用历史上的 `playwm` 字符串替换。作者直接制作在画面里的文字或 Logo 不会被移除。播放 URL 是上游临时签名地址，可能过期，客户端不应长期保存。
 
@@ -12,14 +12,14 @@
 
 1. 从最多 4 KB 的分享文案中提取第一个 HTTPS URL。
 2. 只允许 `v.douyin.com`、`www.douyin.com`、`m.douyin.com` 和 `www.iesdouyin.com`。
-3. 展开短链时限制跳转次数，并逐跳校验域名、端口和公网 IP，防止 SSRF。
-4. 从最终 `/video/{id}` 或 `/share/video/{id}` 路径提取 `awemeId`。
+3. 导航前校验入口域名和公网 IP；浏览器中的文档跳转只允许进入配置的抖音域名。
+4. 在 Chromium 中打开分享链接，让抖音页面安全 SDK 生成当前有效的请求签名。
 5. 每次解析时重新读取 Cookie 文件，因此手工更新后不需要重启 FastAPI。
-6. 使用 Cookie、匹配的 User-Agent 和 `a_bogus`/`X-Bogus` 签名请求公开作品详情接口。
+6. 监听页面发出的 `/aweme/v1/web/aweme/detail/` 响应，并从最终页面地址提取 `awemeId`。
 7. 从 `aweme_detail.video.bit_rate` 等播放候选中排除明确水印地址和 H.265，优先选择最高分辨率、最高码率的 H.264 地址。
 8. Cookie 文件缺失、内容为空或上游拒绝会话时返回 `COOKIE_EXPIRED`。
 
-浏览器回退和 Playwright 依赖已删除，生产服务器不需要安装 Chrome。
+纯 Python 的 `a_bogus`/`X-Bogus` 请求保留为显式关闭浏览器解析器时的旧路径；当前默认使用浏览器解析器，因为上游还要求页面安全 SDK 生成 `x-secsdk-web-signature`。
 
 ## 3. 配置 Cookie
 
@@ -55,7 +55,9 @@ chmod 600 .douyin-cookie
 ```dotenv
 DOUYIN_COOKIE_FILE=/etc/danci/douyin-cookie.txt
 DOUYIN_SKIP_DNS_SAFETY_CHECK=false
-DOUYIN_API_RETRIES=2
+DOUYIN_BROWSER_RESOLVER_ENABLED=true
+DOUYIN_BROWSER_HEADLESS=true
+DOUYIN_BROWSER_TIMEOUT_SECONDS=25
 ```
 
 ```bash
@@ -171,13 +173,13 @@ DOUYIN_SKIP_DNS_SAFETY_CHECK=true python -m douyin.cli \
 - Cookie 文件只保存在服务端，不通过客户端上传。
 - 代码不会记录 Cookie、签名值或完整请求 URL。
 - 更新 Cookie 文件使用原子替换更稳妥，例如先写临时文件、设置权限，再移动到目标位置。
-- 本地 Cookie 移到腾讯云后可能因 IP、User-Agent 或风控策略被拒绝，此时会返回 `COOKIE_EXPIRED`。
+- 本地 Cookie 移到腾讯云后可能因 IP、User-Agent 或风控策略被拒绝；页面安全 SDK 拒绝请求时会返回 `UPSTREAM_RATE_LIMITED`。
 - 不尝试绕过验证码、账号验证或访问非公开作品。
 - 详情接口和签名规则属于上游非稳定实现，需要通过真实样本持续回归。
 
 ## 8. 实现参考与许可
 
-Cookie 管理、详情参数和签名调用链参考 `jiji262/douyin-downloader`。项目内 `douyin/xbogus.py` 和 `douyin/abogus.py` 保留了各自上游的 Apache-2.0 许可与作者声明；没有引入参考项目的浏览器、下载器、数据库或批量任务代码。
+Cookie 管理、详情参数和签名调用链参考 `jiji262/douyin-downloader`。浏览器解析器采用其 Playwright 回退的核心思路：在真实页面上下文中监听受保护接口响应；未复制其下载器、数据库或批量任务代码。项目内 `douyin/xbogus.py` 和 `douyin/abogus.py` 保留了各自上游的 Apache-2.0 许可与作者声明。
 
 ## 9. 独立视频下载器
 
